@@ -1,0 +1,29 @@
+# Node
+node_modules/
+.output/
+dist/
+.nuxt/
+.cache/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Git / sistema
+.git/
+
+# Logs
+*.log
+
+# Build geral
+build/
+coverage/
+
+# Outros
+.env

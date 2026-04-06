@@ -1,0 +1,41 @@
+{
+  "name": "@jorgemartins72/cliente-session",
+  "version": "0.1.1",
+  "description": "Lightweight session manager for static Nuxt/Vue apps (cookies + storage)",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && tsc --module commonjs --outDir dist-cjs --declaration false --target ES2020 && mv dist-cjs/index.js dist/index.cjs && rm -rf dist-cjs"
+  },
+  "keywords": [
+    "nuxt",
+    "vue",
+    "session",
+    "auth",
+    "client-side",
+    "storage"
+  ],
+  "author": "Jorge Martins <jorge.martins@jamar.dev.br>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jamar-dev/cliente-session.git"
+  },
+  "homepage": "https://github.com/jamar-dev/cliente-session#readme",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  }
+}
