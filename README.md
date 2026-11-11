@@ -173,6 +173,79 @@ if (isLoggedIn()) {
 
 ---
 
+### 🛡️ Modo `server` (v0.3.0)
+
+Para sites que precisam proteger tokens contra XSS e esconder a `X-API-Key`. O Nuxt roda como **proxy (BFF)** em Nitro/Lambda: os tokens e a chave ficam **só no servidor**, e o navegador recebe apenas um **cookie selado `HttpOnly`** e os dados públicos do usuário. O modo `browser` acima continua igual.
+
+`h3` (1.x) é `peerDependency` opcional: só é necessário em `@jorgemartins72/cliente-session/server`.
+
+**1. Servidor** (cada arquivo de rota do Nuxt vira uma linha):
+
+```ts
+// server/utils/session.ts
+import { createSessionServer, publicAuthRoutes } from '@jorgemartins72/cliente-session/server'
+
+export const sessionServer = createSessionServer((event) => {
+  const c = useRuntimeConfig(event) // apiBase, apiKey, sessionPassword (privados)
+  return {
+    apiBase: c.apiBase,
+    apiKey: c.apiKey,
+    password: c.sessionPassword, // 32+ caracteres
+    organization: 'jamar',
+    secure: !import.meta.dev, // Secure não funciona em http://localhost no Safari
+    routes: [
+      ...publicAuthRoutes, // slug, cadastro, primeiro acesso, esqueci a senha
+      { methods: ['GET', 'POST'], path: '/profiles' },
+      { methods: 'GET', path: '/etapas/**', auth: 'none' }, // pública, sem token
+    ],
+  }
+})
+```
+
+```ts
+// server/api/auth/login.post.ts    -> export default sessionServer.login
+// server/api/auth/session.get.ts   -> export default sessionServer.session
+// server/api/auth/logout.post.ts   -> export default sessionServer.logout
+// server/api/[...].ts              -> export default sessionServer.proxy
+```
+
+**2. Navegador:**
+
+```ts
+import { createSessionClient } from '@jorgemartins72/cliente-session'
+
+const session = createSessionClient({ mode: 'server' })
+
+await session.load() // ao abrir o site: lê o estado do servidor
+await session.login({ email, password }) // erro: SessionError (err.data.detail.code)
+const perfis = await session.fetch('/profiles') // passa pelo proxy
+await session.logout()
+
+session.getState() // { status: 'idle' | 'loading' | 'authenticated' | 'anonymous', user }
+session.subscribe((state) => { /* reativo: ligue a um ref/useState */ })
+```
+
+**O que o proxy garante**
+
+| Proteção | Como |
+|---|---|
+| Deny by default | Só passam as rotas da lista `routes`; o resto responde `404` sem chamar a API |
+| Tokens fora do JS | O login devolve só `{ user }`; o cookie é `HttpOnly`, selado e `SameSite=Lax` |
+| Chave do tenant | `Authorization` e `X-API-Key` enviados pelo navegador são descartados; valem só os do servidor |
+| CSRF | Toda escrita (POST, PUT, PATCH, DELETE) exige o header `X-Requested-With: cliente-session` (o cliente já envia) |
+| Escape de caminho | `..`, `%2e%2e`, `%2f`, `\` e caracteres de controle são rejeitados |
+| Refresh | Renova o access token antes de vencer e repete uma vez a chamada que receber `401` |
+| Login automático | Rotas com `startsSession` (definir/redefinir senha) guardam os tokens no cookie e devolvem só `{ user }` |
+| Respostas | Só o status e o `content-type` voltam; `Set-Cookie` e demais headers da API são descartados |
+
+**Limites e cuidados**
+- `POST /auth` e `/auth/refresh` **não** estão em `publicAuthRoutes` de propósito: tokens nunca devem chegar ao navegador. Rotas da API que fazem login automático (ex.: definir a senha) devem usar `startsSession: true`: o servidor guarda os tokens no cookie e devolve só `{ user }`. Confira se alguma rota que você liberar devolve tokens no corpo.
+- O cookie selado cresce ~1,4x e os navegadores descartam cookies acima de ~4 KB. O pacote recusa gravar dados grandes (erro 500 claro); mantenha `user` enxuto.
+- A sessão é stateless: não há como revogá-la no servidor antes de `maxAge` (padrão 10 h). O logout só apaga o cookie do navegador.
+- O refresh assume que a API aceita o mesmo refresh token em requisições paralelas (sem rotação com revogação).
+
+---
+
 ### 🧑‍💻 Autor
 
 **Jorge Martins**
@@ -311,6 +384,28 @@ Returns `true` if an access token exists in sessionStorage.
 | `localStorage`   | `refresh_token` | Persistent login between sessions        |
 | `localStorage`   | `user`          | User metadata                            |
 | *(optional)*     | `cookie`        | `isLoggedIn` flag for client middleware  |
+
+---
+
+### 🛡️ `server` mode (v0.3.0)
+
+For sites that must keep tokens away from XSS and hide the `X-API-Key`. Nuxt runs as a **proxy (BFF)** on Nitro/Lambda: tokens and the key stay **on the server only**; the browser gets a **sealed `HttpOnly` cookie** and the public user data. The `browser` mode above is unchanged.
+
+`h3` (1.x) is an optional `peerDependency`, needed only by `@jorgemartins72/cliente-session/server`.
+
+```ts
+// server: createSessionServer(options | (event) => options) returns { login, session, logout, proxy }
+import { createSessionServer, publicAuthRoutes } from '@jorgemartins72/cliente-session/server'
+
+// browser:
+import { createSessionClient } from '@jorgemartins72/cliente-session'
+const session = createSessionClient({ mode: 'server' })
+await session.load()
+await session.login({ email, password })
+await session.fetch('/profiles') // goes through the proxy
+```
+
+Highlights: deny-by-default route list, tokens never reach JS, browser-sent `Authorization`/`X-API-Key` are dropped, CSRF header required on writes, path-escape rejection (`..`, `%2f`), automatic refresh with one retry on `401`, and upstream cookies/headers are never forwarded. See the Portuguese section for the full example and caveats (cookie size ~4 KB, stateless sessions, refresh without rotation).
 
 ---
 

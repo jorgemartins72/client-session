@@ -28,3 +28,7 @@ export function clearSession() {
 export function isLoggedIn(): boolean {
   return !!sessionStorage.getItem('access_token')
 }
+
+// Modo `server`: cliente sem tokens no navegador (ver também `/server`)
+export { createSessionClient, SessionError } from './client'
+export type { SessionClient, SessionClientOptions, SessionState, SessionStatus } from './client'

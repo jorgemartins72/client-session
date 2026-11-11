@@ -1,0 +1,64 @@
+name: Publicar no npm
+
+# A cada push em master: testa, builda e publica SOMENTE se a versão do package.json
+# ainda não existir no npm. Para lançar uma versão nova, suba o "version" no package.json.
+on:
+  push:
+    branches:
+      - master
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  publish:
+    name: Testar, buildar e publicar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # o package-lock.json está no .gitignore, por isso npm install e não npm ci
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+
+      - name: Testes
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Verificar se a versão já foi publicada
+        id: versao
+        run: |
+          NOME=$(node -p "require('./package.json').name")
+          VERSAO=$(node -p "require('./package.json').version")
+          echo "nome=$NOME" >> "$GITHUB_OUTPUT"
+          echo "versao=$VERSAO" >> "$GITHUB_OUTPUT"
+          if npm view "$NOME@$VERSAO" version >/dev/null 2>&1; then
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+            echo "$NOME@$VERSAO já existe no npm: nada a publicar."
+          else
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publicar no npm
+        if: steps.versao.outputs.publicar == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+      - name: Resumo
+        run: |
+          if [ "${{ steps.versao.outputs.publicar }}" = "true" ]; then
+            echo "Publicado ${{ steps.versao.outputs.nome }}@${{ steps.versao.outputs.versao }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Sem publicação: ${{ steps.versao.outputs.nome }}@${{ steps.versao.outputs.versao }} já existe no npm." >> "$GITHUB_STEP_SUMMARY"
+          fi
