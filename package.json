@@ -1,6 +1,6 @@
 {
   "name": "@jorgemartins72/cliente-session",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Session manager for Nuxt/Vue: browser mode (storage) and server mode (h3 sealed cookie + API proxy)",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -28,9 +28,9 @@
   "author": "Jorge Martins <jorge.martins@jamar.dev.br>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jamar-dev/cliente-session.git"
+    "url": "https://github.com/jorgemartins72/client-session.git"
   },
-  "homepage": "https://github.com/jamar-dev/cliente-session#readme",
+  "homepage": "https://github.com/jorgemartins72/client-session#readme",
   "license": "MIT",
   "devDependencies": {
     "h3": "^1.15.11",

@@ -9,20 +9,29 @@
 
 ## 🇧🇷 Português
 
-**cliente-session** é um gerenciador leve e independente para autenticação e sessão em aplicações **Nuxt/Vue estáticas** — ideal para projetos hospedados em **S3, CloudFront, Netlify** ou qualquer ambiente sem backend Node.
+**cliente-session** é um gerenciador de autenticação e sessão para aplicações **Nuxt/Vue**, com **dois modos**:
 
-Ele combina **localStorage**, **sessionStorage** e **cookies opcionais** para armazenar tokens e dados do usuário, sem depender de SSR.
+| | Modo `browser` | Modo `server` (v0.3.0) |
+|---|---|---|
+| Onde fica a sessão | No navegador (`localStorage` e `sessionStorage`) | No servidor: cookie selado `HttpOnly` |
+| Tokens acessíveis ao JavaScript | Sim (um XSS consegue lê-los) | **Não** |
+| `X-API-Key` | Vai no código do navegador | Fica só no servidor |
+| Exige backend Node (Nitro/Lambda) | Não, funciona em hospedagem estática | Sim (h3 1.x) |
+| Dependências | Nenhuma | `h3` (peerDependency opcional) |
+| Importar de | `@jorgemartins72/cliente-session` | `@jorgemartins72/cliente-session/server` + `createSessionClient` |
+
+Use o `browser` para sites estáticos simples (S3, CloudFront, Netlify) em que guardar o token no navegador é aceitável. Use o `server` quando for preciso proteger os tokens contra XSS e esconder a chave da API.
 
 ---
 
 ### ✨ Recursos
 
-- 🧠 Sessão 100% client-side
-- 🪶 Nenhuma dependência externa
-- 🧱 Compatível com Nuxt 3/4 e Vue 3
+- 🧠 Dois modos: sessão no navegador (`browser`) ou no servidor (`server`)
+- 🪶 Modo `browser` sem dependências; o modo `server` usa `h3` (peerDependency opcional)
+- 🧱 Feito para Nuxt/Vue (modo `server` com testes automatizados sobre h3 1.15)
 - 🔁 Suporte a access_token + refresh_token
-- 💾 Pode ser integrado a qualquer API backend
-- ⚡ Simples, direto e sem configuração
+- 🛡️ Modo `server`: tokens fora do JavaScript, proxy com lista de rotas permitidas, CSRF e refresh automático
+- 💾 Integra com qualquer API REST
 
 ---
 
@@ -40,7 +49,7 @@ pnpm add @jorgemartins72/cliente-session
 
 ---
 
-### 🧩 Exemplo de uso
+### 🧩 Exemplo de uso (modo `browser`)
 
 ```ts
 import { setSession, getSession, clearSession, isLoggedIn } from '@jorgemartins72/cliente-session'
@@ -66,7 +75,7 @@ clearSession()
 
 ---
 
-### 🧰 Integração com Nuxt
+### 🧰 Integração com Nuxt (modo `browser`)
 
 Você pode criar um **plugin** que injeta o token automaticamente nas requisições:
 
@@ -96,7 +105,7 @@ export default defineNuxtPlugin(() => {
 
 ---
 
-### 📘 Documentação da API
+### 📘 Documentação da API (modo `browser`)
 
 #### 🧩 `setSession(data: SessionData)`
 
@@ -162,14 +171,15 @@ if (isLoggedIn()) {
 
 ---
 
-### 📦 Estrutura de armazenamento
+### 📦 Estrutura de armazenamento (modo `browser`)
 
 | Tipo             | Dado            | Descrição                                   |
 | ---------------- | --------------- | ------------------------------------------- |
 | `sessionStorage` | `access_token`  | Token temporário (some ao fechar navegador) |
 | `localStorage`   | `refresh_token` | Permite restaurar login depois              |
 | `localStorage`   | `user`          | Dados públicos do usuário                   |
-| *(opcional)*     | `cookie`        | Flag `isLoggedIn` para middlewares          |
+
+Tudo isso fica legível por qualquer script da página: um XSS consegue ler os tokens. Se isso não for aceitável, use o modo `server`.
 
 ---
 
@@ -260,20 +270,29 @@ MIT © [Jorge Martins](https://github.com/jamar-dev)
 
 ## 🇺🇸 English
 
-**cliente-session** is a lightweight and framework-agnostic session manager for **static Nuxt/Vue apps**, perfect for deployments on **S3, CloudFront, Netlify**, or any static hosting without Node backends.
+**cliente-session** is an authentication and session manager for **Nuxt/Vue** apps, with **two modes**:
 
-It combines **localStorage**, **sessionStorage**, and optional **cookies** to persist tokens and user data — no SSR required.
+| | `browser` mode | `server` mode (v0.3.0) |
+|---|---|---|
+| Where the session lives | In the browser (`localStorage` / `sessionStorage`) | On the server: sealed `HttpOnly` cookie |
+| Tokens readable by JavaScript | Yes (an XSS can read them) | **No** |
+| `X-API-Key` | Shipped in the browser code | Stays on the server |
+| Needs a Node backend (Nitro/Lambda) | No, works on static hosting | Yes (h3 1.x) |
+| Dependencies | None | `h3` (optional peerDependency) |
+| Import from | `@jorgemartins72/cliente-session` | `@jorgemartins72/cliente-session/server` + `createSessionClient` |
+
+Use `browser` for simple static sites (S3, CloudFront, Netlify) where keeping the token in the browser is acceptable. Use `server` when tokens must be protected from XSS and the API key hidden.
 
 ---
 
 ### ✨ Features
 
-- 🧠 100% client-side session management
-- 🪶 Zero dependencies
-- 🧱 Works with Nuxt 3/4 and Vue 3
+- 🧠 Two modes: session in the browser (`browser`) or on the server (`server`)
+- 🪶 `browser` mode has no dependencies; `server` mode uses `h3` (optional peerDependency)
+- 🧱 Built for Nuxt/Vue (`server` mode covered by automated tests on h3 1.15)
 - 🔁 Access + refresh token support
-- 💾 Easily integrates with any REST API
-- ⚡ Simple, lightweight and direct
+- 🛡️ `server` mode: tokens kept out of JavaScript, allow-listed proxy, CSRF and automatic refresh
+- 💾 Works with any REST API
 
 ---
 
@@ -291,7 +310,7 @@ pnpm add @jorgemartins72/cliente-session
 
 ---
 
-### 🧩 Usage example
+### 🧩 Usage example (`browser` mode)
 
 ```ts
 import { setSession, getSession, clearSession, isLoggedIn } from '@jorgemartins72/cliente-session'
@@ -313,7 +332,7 @@ clearSession()
 
 ---
 
-### 🧰 Nuxt integration
+### 🧰 Nuxt integration (`browser` mode)
 
 ```ts
 import { getSession } from '@jorgemartins72/cliente-session'
@@ -340,7 +359,7 @@ export default defineNuxtPlugin(() => {
 
 ---
 
-### 📘 API Reference
+### 📘 API Reference (`browser` mode)
 
 #### `setSession(data: SessionData)`
 
@@ -376,14 +395,15 @@ Returns `true` if an access token exists in sessionStorage.
 
 ---
 
-### 📦 Storage strategy
+### 📦 Storage strategy (`browser` mode)
 
 | Layer            | Data            | Purpose                                  |
 | ---------------- | --------------- | ---------------------------------------- |
 | `sessionStorage` | `access_token`  | Temporary session (cleared on tab close) |
 | `localStorage`   | `refresh_token` | Persistent login between sessions        |
 | `localStorage`   | `user`          | User metadata                            |
-| *(optional)*     | `cookie`        | `isLoggedIn` flag for client middleware  |
+
+All of it is readable by any script on the page: an XSS can read the tokens. If that is not acceptable, use `server` mode.
 
 ---
 
