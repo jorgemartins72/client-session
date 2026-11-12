@@ -215,6 +215,7 @@ export const sessionServer = createSessionServer((event) => {
 ```ts
 // server/api/auth/login.post.ts    -> export default sessionServer.login
 // server/api/auth/session.get.ts   -> export default sessionServer.session
+// server/api/auth/reload.post.ts   -> export default sessionServer.reload
 // server/api/auth/logout.post.ts   -> export default sessionServer.logout
 // server/api/[...].ts              -> export default sessionServer.proxy
 ```
@@ -229,6 +230,7 @@ const session = createSessionClient({ mode: 'server' })
 await session.load() // ao abrir o site: lê o estado do servidor
 await session.login({ email, password }) // erro: SessionError (err.data.detail.code)
 const perfis = await session.fetch('/profiles') // passa pelo proxy
+await session.reload() // depois de editar o usuário: atualiza o `user` guardado no cookie
 await session.logout()
 
 session.getState() // { status: 'idle' | 'loading' | 'authenticated' | 'anonymous', user }
@@ -251,6 +253,7 @@ session.subscribe((state) => { /* reativo: ligue a um ref/useState */ })
 **Limites e cuidados**
 - `POST /auth` e `/auth/refresh` **não** estão em `publicAuthRoutes` de propósito: tokens nunca devem chegar ao navegador. Rotas da API que fazem login automático (ex.: definir a senha) devem usar `startsSession: true`: o servidor guarda os tokens no cookie e devolve só `{ user }`. Confira se alguma rota que você liberar devolve tokens no corpo.
 - O cookie selado cresce ~1,4x e os navegadores descartam cookies acima de ~4 KB. O pacote recusa gravar dados grandes (erro 500 claro); mantenha `user` enxuto.
+- O `user` fica no cookie e só é renovado junto com os tokens (cerca de 30 min). Depois de alterar dados do usuário na API, chame `session.reload()` (`POST /api/auth/reload`): o servidor renova os tokens e traz o `user` atual (a API precisa devolver o usuário em `/auth/refresh`).
 - A sessão é stateless: não há como revogá-la no servidor antes de `maxAge` (padrão 10 h). O logout só apaga o cookie do navegador.
 - O refresh assume que a API aceita o mesmo refresh token em requisições paralelas (sem rotação com revogação).
 
@@ -414,7 +417,7 @@ For sites that must keep tokens away from XSS and hide the `X-API-Key`. Nuxt run
 `h3` (1.x) is an optional `peerDependency`, needed only by `@jorgemartins72/cliente-session/server`.
 
 ```ts
-// server: createSessionServer(options | (event) => options) returns { login, session, logout, proxy }
+// server: createSessionServer(options | (event) => options) returns { login, session, reload, logout, proxy }
 import { createSessionServer, publicAuthRoutes } from '@jorgemartins72/cliente-session/server'
 
 // browser:
@@ -423,6 +426,7 @@ const session = createSessionClient({ mode: 'server' })
 await session.load()
 await session.login({ email, password })
 await session.fetch('/profiles') // goes through the proxy
+await session.reload() // after editing the user: refreshes the `user` stored in the cookie
 ```
 
 Highlights: deny-by-default route list, tokens never reach JS, browser-sent `Authorization`/`X-API-Key` are dropped, CSRF header required on writes, path-escape rejection (`..`, `%2f`), automatic refresh with one retry on `401`, and upstream cookies/headers are never forwarded. See the Portuguese section for the full example and caveats (cookie size ~4 KB, stateless sessions, refresh without rotation).

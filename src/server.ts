@@ -298,6 +298,23 @@ export function createSessionServer(config: SessionServerConfig) {
     return { authenticated: true, user: user ?? null }
   })
 
+  // POST /api/auth/reload  ->  { user }
+  // Renova os tokens e o `user` guardado no cookie (a API devolve o usuário atual no refresh).
+  // Use depois de alterar dados do usuário, para a sessão não mostrar o valor antigo.
+  const reload = defineEventHandler(async (event) => {
+    const o = resolve(event)
+    requireCsrf(event)
+    const session = await openSession(o, event)
+    if (!session.data.refresh_token) return fail(event, 401, 'SESSION_REQUIRED', 'Sessão necessária.')
+    const renewed = await refresh(o, session)
+    if (!renewed) {
+      // refresh recusado: a sessão já foi encerrada; falha passageira (5xx): mantém e avisa
+      if (!session.data.refresh_token) return fail(event, 401, 'SESSION_REQUIRED', 'Sessão expirada.')
+      return fail(event, 502, 'BAD_UPSTREAM', 'Não foi possível atualizar a sessão agora.')
+    }
+    return { user: session.data.user ?? null }
+  })
+
   // POST /api/auth/logout
   const logout = defineEventHandler(async (event) => {
     const o = resolve(event)
@@ -375,5 +392,5 @@ export function createSessionServer(config: SessionServerConfig) {
     return new Response(res.body, { status: res.status, headers: out })
   })
 
-  return { login, session: sessionInfo, logout, proxy }
+  return { login, session: sessionInfo, reload, logout, proxy }
 }

@@ -55,6 +55,7 @@ function makeHandler(extra: Record<string, unknown> = {}) {
   const router = createRouter()
   router.post('/api/auth/login', s.login)
   router.get('/api/auth/session', s.session)
+  router.post('/api/auth/reload', s.reload)
   router.post('/api/auth/logout', s.logout)
   router.use('/api/**', s.proxy)
   return toWebHandler(createApp().use(router))
@@ -201,6 +202,47 @@ describe('sessão e logout', () => {
     const after = cookieOf(res)
     const info = await call('/api/auth/session', { cookie: after })
     expect((await info.json()).authenticated).toBe(false)
+  })
+})
+
+describe('reload', () => {
+  it('renova o usuário do cookie com o que a API devolve no refresh', async () => {
+    const cookie = await loginAs()
+    respond = () =>
+      Response.json({ access_token: jwt(1800), refresh_token: jwt(36000), user: { name: 'Ana Maria', roles: ['atleta'] } })
+    const res = await call('/api/auth/reload', { method: 'POST', cookie })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ user: { name: 'Ana Maria', roles: ['atleta'] } })
+    expect(calls.map((c) => c.path)).toEqual(['/auth/refresh'])
+    const next = cookieOf(res)!
+    expect((await (await call('/api/auth/session', { cookie: next })).json()).user.name).toBe('Ana Maria')
+  })
+
+  it('exige CSRF e sessão', async () => {
+    const cookie = await loginAs()
+    expect((await call('/api/auth/reload', { method: 'POST', cookie, csrf: false })).status).toBe(403)
+    const anon = await call('/api/auth/reload', { method: 'POST' })
+    expect(anon.status).toBe(401)
+    expect((await anon.json()).detail.code).toBe('SESSION_REQUIRED')
+    expect(calls).toEqual([])
+  })
+
+  it('refresh recusado encerra a sessão (401)', async () => {
+    const cookie = await loginAs()
+    respond = () => Response.json({ detail: 'x' }, { status: 401 })
+    const res = await call('/api/auth/reload', { method: 'POST', cookie })
+    expect(res.status).toBe(401)
+    const info = await call('/api/auth/session', { cookie: cookieOf(res) })
+    expect((await info.json()).authenticated).toBe(false)
+  })
+
+  it('erro 5xx na API mantém a sessão e responde 502', async () => {
+    const cookie = await loginAs()
+    respond = () => new Response('x', { status: 503 })
+    const res = await call('/api/auth/reload', { method: 'POST', cookie })
+    expect(res.status).toBe(502)
+    const info = await call('/api/auth/session', { cookie })
+    expect((await info.json()).authenticated).toBe(true)
   })
 })
 

@@ -47,6 +47,25 @@ describe('createSessionClient (modo server)', () => {
     expect(client.getState().status).toBe('idle')
   })
 
+  it('reload atualiza o usuário, envia CSRF e cai para anônimo em 401', async () => {
+    let modo: 'ok' | 'expirada' = 'ok'
+    const f = fakeFetch((url) => {
+      if (url.endsWith('/login')) return Response.json({ user: { name: 'Ana' } })
+      return modo === 'ok'
+        ? Response.json({ user: { name: 'Ana Maria' } })
+        : Response.json({ detail: { code: 'SESSION_REQUIRED' } }, { status: 401 })
+    })
+    const client = createSessionClient({ mode: 'server', fetch: f.fn })
+    await client.login({ email: 'a', password: 'b' })
+    await client.reload()
+    expect(client.getState()).toEqual({ status: 'authenticated', user: { name: 'Ana Maria' } })
+    expect(f.calls[1].url).toBe('/api/auth/reload')
+    expect(f.calls[1].headers.get('x-requested-with')).toBe('cliente-session')
+    modo = 'expirada'
+    await expect(client.reload()).rejects.toBeInstanceOf(SessionError)
+    expect(client.getState()).toEqual({ status: 'anonymous', user: null })
+  })
+
   it('logout volta para anônimo mesmo se a chamada falhar', async () => {
     const f = fakeFetch((url) => (url.endsWith('/login') ? Response.json({ user: {} }) : new Response('x', { status: 500 })))
     const client = createSessionClient({ mode: 'server', fetch: f.fn })

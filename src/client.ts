@@ -93,6 +93,21 @@ export function createSessionClient<U = any>(options: SessionClientOptions) {
       return state
     },
 
+    /**
+     * Pede ao servidor para renovar o `user` da sessão (use depois de editar os dados do usuário).
+     * Sem sessão (401), o estado volta para `anonymous`.
+     */
+    async reload() {
+      try {
+        const data = await request(`${basePath}/reload`, { method: 'POST' })
+        set({ status: 'authenticated', user: data?.user ?? null })
+      } catch (err) {
+        if (err instanceof SessionError && err.status === 401) set({ status: 'anonymous', user: null })
+        throw err
+      }
+      return state
+    },
+
     async logout() {
       try {
         await request(`${basePath}/logout`, { method: 'POST' })

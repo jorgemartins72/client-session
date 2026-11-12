@@ -1,6 +1,6 @@
 {
   "name": "@jorgemartins72/cliente-session",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Session manager for Nuxt/Vue: browser mode (storage) and server mode (h3 sealed cookie + API proxy)",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
